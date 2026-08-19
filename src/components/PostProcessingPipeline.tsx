@@ -13,9 +13,7 @@ export default function PostProcessingPipeline({ highQuality }: { highQuality: b
   const size = useThree((state) => state.size);
   const isMobile = size.width <= 768;
 
-  const isMonument = activeArtifact?.id === "central-question";
-  // Dynamic focal plane: 4.6m for monuments, 2.9m for standard artifacts, 3.5m for ambient hall view
-  const focusDistance = activeArtifact ? (isMonument ? 0.046 : 0.029) : 0.035;
+  const focusDistance = activeArtifact ? 0.029 : 0.035;
 
   // Start without full-screen passes, then enable them only after
   // PerformanceMonitor confirms that the device can sustain the scene.

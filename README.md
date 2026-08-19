@@ -6,8 +6,8 @@
 
 - Sảnh chính và ba phòng vật lý rõ ràng: hình thành chủ trương; kết quả và bước ngoặt 1968; điều chỉnh chính sách 1979–1988.
 - Tour camera tự động và menu chuyển phòng theo bố cục gốc.
-- 12 hiện vật tương tác, popup nội dung, điểm cần nhớ, credit và ghi chú quyền sử dụng.
-- Hiện vật 3D procedural thay cho các mô hình không liên quan; không dùng hình ảnh AI giả làm tư liệu lịch sử.
+- 8 hiện vật ảnh và văn kiện, với popup nội dung, điểm cần nhớ, credit và ghi chú quyền sử dụng.
+- Không dựng câu hỏi, biểu đồ hoặc mô hình khái niệm thành hiện vật; không dùng hình ảnh AI giả làm tư liệu lịch sử.
 - Chế độ ngày/đêm, âm thanh và tiến độ khám phá.
 - Render thích ứng: mobile/software WebGL giảm hiệu ứng GPU; thiết bị có GPU thật giữ post-processing đầy đủ.
 
