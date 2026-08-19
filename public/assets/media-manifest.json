@@ -1,0 +1,75 @@
+{
+  "deck": "khoan-ho-vinh-phuc-3d-museum",
+  "rights_policy": "Ảnh báo chí/bảo tàng không mặc định có giấy phép mở. Các mục B* chỉ dùng trong bối cảnh học tập nội bộ; cần xin phép nếu công bố rộng rãi.",
+  "assets": [
+    {
+      "id": "kim-ngoc-portrait",
+      "used_in_slides": [
+        8
+      ],
+      "description": "Chân dung cố Bí thư Tỉnh ủy Vĩnh Phúc Kim Ngọc (1917–1979)",
+      "source_page": "https://baotanglichsu.vn/vi/Articles/3098/61819/djong-chi-bi-thu-tinh-uy-kim-ngoc-con-nguoi-cua-djoi-moi-va-sang-tao.html",
+      "direct_file": "https://baotanglichsu.vn/DataFiles/asset/upload/anh-tin-tuc/1_15.jpg",
+      "local_file": "assets/kim-ngoc-portrait.jpg",
+      "institution": "Bảo tàng Lịch sử Quốc gia",
+      "creator": "Không ghi trên trang nguồn",
+      "rights": "Không thấy giấy phép mở trên trang nguồn",
+      "attribution": "Ảnh: Bảo tàng Lịch sử Quốc gia",
+      "tier": "B*",
+      "caveat": "Nguồn chính thống nhưng quyền tái sử dụng chưa được nêu; chỉ dùng nội bộ học tập nếu chưa xin phép.",
+      "sha256": "3beec9f846ab76f869b95a092fb705ae27d54627a55d022178eabca4c8c16e67"
+    },
+    {
+      "id": "kim-ngoc-lang-cong",
+      "used_in_slides": [
+        12
+      ],
+      "description": "Đồng chí Kim Ngọc chỉ đạo sản xuất nông nghiệp tại xã Lãng Công, huyện Sông Lô",
+      "source_page": "https://baotanglichsu.vn/vi/Articles/3098/61819/djong-chi-bi-thu-tinh-uy-kim-ngoc-con-nguoi-cua-djoi-moi-va-sang-tao.html",
+      "direct_file": "https://baotanglichsu.vn/DataFiles/asset/upload/anh-tin-tuc/2_17.jpg",
+      "local_file": "assets/kim-ngoc-lang-cong.jpg",
+      "institution": "Bảo tàng Lịch sử Quốc gia",
+      "creator": "Không ghi trên trang nguồn",
+      "rights": "Không thấy giấy phép mở trên trang nguồn",
+      "attribution": "Ảnh: Bảo tàng Lịch sử Quốc gia",
+      "tier": "B*",
+      "caveat": "Nguồn chính thống nhưng quyền tái sử dụng chưa được nêu; chỉ dùng nội bộ học tập nếu chưa xin phép.",
+      "sha256": "c4cd722bef195dc0b0a3e628714b28fd66a2b179526fde4ce5ae811271e55f34"
+    },
+    {
+      "id": "htx-dai-phong-1961",
+      "used_in_slides": [
+        5
+      ],
+      "description": "Máy cày tại HTX Đại Phong, Lệ Thủy, Quảng Bình, thực hiện luống cày đầu tiên trước xã viên, 6/1961",
+      "source_page": "https://www.vietnamplus.vn/photo-73-nam-ngay-chu-tich-ho-chi-minh-keu-goi-thi-dua-ai-quoc-post718661.vnp",
+      "direct_file": "https://media.vietnamplus.vn/images/-8I77w0IiyOollvOSfhaYQioJl6Ps3k2JujYarpxrstEGcB8F3l2SCVZ3uVer5VXzbV_65Aa6oaOVuikAjVqcw/0906thidua1.jpg",
+      "local_file": "assets/htx-dai-phong-1961.jpg",
+      "institution": "TTXVN qua VietnamPlus",
+      "creator": "Văn Thượng/TTXVN",
+      "rights": "Bản quyền; không có giấy phép mở trên trang nguồn",
+      "attribution": "Ảnh: Văn Thượng/TTXVN, qua VietnamPlus (6/1961)",
+      "tier": "B*",
+      "caveat": "Chỉ dùng nội bộ học tập nếu chưa xin phép; cần clearance trước khi phát hành công khai.",
+      "sha256": "1fbd5d7601266493668a68502f94ac37557f42af0a438ea9b5462946217553f0"
+    },
+    {
+      "id": "nghi-quyet-68-scan",
+      "used_in_slides": [
+        7
+      ],
+      "description": "Ảnh trang đầu Nghị quyết 68-NQ/TU ngày 10/9/1966",
+      "source_page": "https://nhandan.vn/tran-quoc-phi-nguoi-ky-nghi-quyet-ba-khoan-post628607.html",
+      "direct_file": "",
+      "local_file": "assets/nghi-quyet-68-scan-crop.png",
+      "institution": "Báo Nhân Dân; ảnh hồ sơ do Ban Tuyên giáo Tỉnh ủy Vĩnh Phúc cung cấp",
+      "creator": "Không xác định",
+      "rights": "Không thấy giấy phép mở",
+      "attribution": "Tư liệu: Ban Tuyên giáo Tỉnh ủy Vĩnh Phúc / Báo Nhân Dân",
+      "tier": "B*",
+      "caveat": "Ảnh scan tài liệu lịch sử; quyền đối với bản số hóa chưa được công bố rõ.",
+      "sha256": "f34d716f75b79c4046c397b891259ddefe18adf0d418f3a3bad5ab120e817d79"
+    }
+  ],
+  "rejected": []
+}
