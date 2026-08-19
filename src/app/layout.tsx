@@ -5,14 +5,14 @@ import "./globals.css";
 const sans = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-sans",
+  variable: "--font-be-vietnam",
   display: "swap",
 });
 
 const serif = Merriweather({
   subsets: ["latin", "vietnamese"],
   weight: ["400", "700"],
-  variable: "--font-serif",
+  variable: "--font-merriweather",
   display: "swap",
 });
 
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" className={`${sans.variable} ${serif.variable}`}>
-      <body>{children}</body>
+      <body className="w-screen h-screen overflow-hidden bg-black text-white font-sans antialiased">{children}</body>
     </html>
   );
 }

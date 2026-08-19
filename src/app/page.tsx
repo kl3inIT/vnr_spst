@@ -6,18 +6,17 @@ import OverlayUI from "@/components/OverlayUI";
 const Experience = dynamic(() => import("@/components/Experience"), {
   ssr: false,
   loading: () => (
-    <div className="museum-loading" role="status">
-      <span className="loading-mark" aria-hidden="true" />
-      <p>Đang dựng không gian bảo tàng…</p>
+    <div className="absolute inset-0 flex items-center justify-center bg-[#050505] text-white">
+      <div className="animate-pulse">Đang nạp không gian 3D...</div>
     </div>
   ),
 });
 
 export default function Home() {
   return (
-    <main className="museum-shell">
-      <Experience />
+    <main className="relative w-screen h-screen bg-[#050505]">
       <OverlayUI />
+      <Experience />
     </main>
   );
 }
