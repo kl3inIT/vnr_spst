@@ -1,47 +1,92 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { ARTIFACTS, ROOMS, type ArtifactData, type RoomData } from "@/data/museumData";
+import { create } from 'zustand';
+import { ARTIFACTS, ROOMS, ArtifactData, RoomData } from '@/data/museumData';
 
-type DebateVote = "progress" | "regression" | null;
-
-interface MuseumState {
+interface AppState {
   activeRoomId: string;
   activeArtifactId: string | null;
   visitedArtifactIds: string[];
-  debateVote: DebateVote;
-  setActiveRoom: (roomId: string) => void;
-  setActiveArtifact: (artifactId: string | null) => void;
-  setDebateVote: (vote: Exclude<DebateVote, null>) => void;
+  isMuted: boolean;
+  isNightMode: boolean;
+  zoomPercentage: number;
+  isTourMode: boolean;
+
+  // Computed getters
   getCurrentRoom: () => RoomData;
   getActiveArtifact: () => ArtifactData | null;
+
+  // Actions
+  setActiveRoom: (roomId: string) => void;
+  setActiveArtifact: (artifactId: string | null) => void;
+  markArtifactVisited: (artifactId: string) => void;
+  toggleMute: () => void;
+  toggleNightMode: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  setTourMode: (isTour: boolean) => void;
 }
 
-export const useStore = create<MuseumState>()(
-  persist(
-    (set, get) => ({
-      activeRoomId: "main-hall",
-      activeArtifactId: null,
-      visitedArtifactIds: [],
-      debateVote: null,
-      setActiveRoom: (roomId) => set({ activeRoomId: roomId, activeArtifactId: null }),
-      setActiveArtifact: (artifactId) => {
-        if (!artifactId) {
-          set({ activeArtifactId: null });
-          return;
-        }
-        const visited = get().visitedArtifactIds;
+export const useStore = create<AppState>((set, get) => ({
+  activeRoomId: 'main-hall',
+  activeArtifactId: null,
+  visitedArtifactIds: [],
+  isMuted: false,
+  isNightMode: false,
+  zoomPercentage: 100,
+  isTourMode: false,
+
+  getCurrentRoom: () => {
+    const { activeRoomId } = get();
+    return ROOMS.find((r) => r.id === activeRoomId) || ROOMS[0];
+  },
+
+  getActiveArtifact: () => {
+    const { activeArtifactId } = get();
+    if (!activeArtifactId) return null;
+    return ARTIFACTS.find((a) => a.id === activeArtifactId) || null;
+  },
+
+  setActiveRoom: (roomId) => {
+    set({ activeRoomId: roomId, activeArtifactId: null });
+  },
+
+  setActiveArtifact: (artifactId) => {
+    if (artifactId) {
+      const { visitedArtifactIds } = get();
+      if (!visitedArtifactIds.includes(artifactId)) {
         set({
           activeArtifactId: artifactId,
-          visitedArtifactIds: visited.includes(artifactId) ? visited : [...visited, artifactId],
+          visitedArtifactIds: [...visitedArtifactIds, artifactId],
         });
-      },
-      setDebateVote: (debateVote) => set({ debateVote }),
-      getCurrentRoom: () => ROOMS.find((room) => room.id === get().activeRoomId) ?? ROOMS[0],
-      getActiveArtifact: () => ARTIFACTS.find((artifact) => artifact.id === get().activeArtifactId) ?? null,
-    }),
-    {
-      name: "khoan-ho-museum-progress",
-      partialize: (state) => ({ debateVote: state.debateVote, visitedArtifactIds: state.visitedArtifactIds }),
-    },
-  ),
-);
+        return;
+      }
+    }
+    set({ activeArtifactId: artifactId });
+  },
+
+  markArtifactVisited: (artifactId) => {
+    const { visitedArtifactIds } = get();
+    if (!visitedArtifactIds.includes(artifactId)) {
+      set({ visitedArtifactIds: [...visitedArtifactIds, artifactId] });
+    }
+  },
+
+  toggleMute: () => {
+    set((state) => ({ isMuted: !state.isMuted }));
+  },
+
+  toggleNightMode: () => {
+    set((state) => ({ isNightMode: !state.isNightMode }));
+  },
+
+  zoomIn: () => {
+    set((state) => ({ zoomPercentage: Math.min(state.zoomPercentage + 15, 160) }));
+  },
+
+  zoomOut: () => {
+    set((state) => ({ zoomPercentage: Math.max(state.zoomPercentage - 15, 60) }));
+  },
+
+  setTourMode: (isTour: boolean) => {
+    set({ isTourMode: isTour });
+  },
+}));
