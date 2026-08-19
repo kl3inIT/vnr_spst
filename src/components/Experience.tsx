@@ -76,15 +76,14 @@ function CameraController() {
 
     if (activeArtifact) {
       const [x, y, z] = activeArtifact.position;
-      const isMonument = activeArtifact.id === 'central-question';
 
       // Position camera closer to object (camZ closer, camX offset for right modal)
-      const camX = isMonument ? x + 1.3 : x + 1.1;
-      const camY = isMonument ? y + 1.6 : y + 0.95;
-      const camZ = isMonument ? z + 4.6 : z + 2.9;
+      const camX = x + 1.1;
+      const camY = y + 0.95;
+      const camZ = z + 2.9;
 
       const targetX = x - 0.25;
-      const targetY = isMonument ? y + 1.1 : y + 0.55;
+      const targetY = y + 0.55;
 
       controlsRef.current.setLookAt(
         camX, camY, camZ,
@@ -261,31 +260,7 @@ function Stanchions({ position, size = 1.6 }: { position: [number, number, numbe
   );
 }
 
-// 4. Bậc Tam Cấp (Stepped Podium) cho Sảnh Chính
-function SteppedPodium({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, -0.85, 0]} receiveShadow>
-        <cylinderGeometry args={[6, 6.2, 0.3, 64]} />
-        <meshStandardMaterial color="#3a281d" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.55, 0]} receiveShadow>
-        <cylinderGeometry args={[5, 5.2, 0.3, 64]} />
-        <meshStandardMaterial color="#5c4230" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.25, 0]} receiveShadow>
-        <cylinderGeometry args={[4, 4.2, 0.3, 64]} />
-        <meshStandardMaterial color="#7a5a44" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.09, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[3.8, 4, 64]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.1} />
-      </mesh>
-    </group>
-  );
-}
-
-// 4b. Bức tường ngăn phòng (Partition Wall with Door)
+// 4. Bức tường ngăn phòng (Partition Wall with Door)
 function WallWithDoor({ position, rotation, width, height = 12, doorWidth = 6, doorHeight = 8 }: { position: [number, number, number], rotation: [number, number, number], width: number, height?: number, doorWidth?: number, doorHeight?: number }) {
   const wallWidth = (width - doorWidth) / 2;
   return (
@@ -391,53 +366,10 @@ function DocumentFrameWithoutImage({ title }: { title: string }) {
   );
 }
 
-function RiceFieldArtifact({ color }: { color: string }) {
-  return (
-    <group scale={0.9}>
-      <mesh position={[0, -0.12, 0]} receiveShadow><cylinderGeometry args={[1.05, 1.2, 0.18, 24]} /><meshStandardMaterial color="#58442d" roughness={0.95} /></mesh>
-      {Array.from({ length: 18 }, (_, index) => {
-        const x = ((index % 6) - 2.5) * 0.28;
-        const z = (Math.floor(index / 6) - 1) * 0.32;
-        return <group key={index} position={[x, 0.35 + (index % 3) * 0.04, z]}>
-          <mesh><cylinderGeometry args={[0.018, 0.028, 0.9, 6]} /><meshStandardMaterial color={color} roughness={0.8} /></mesh>
-          <mesh position={[0.09, 0.33, 0]} rotation={[0, 0, -0.7]}><capsuleGeometry args={[0.035, 0.3, 4, 6]} /><meshStandardMaterial color="#e0b94a" roughness={0.72} /></mesh>
-        </group>;
-      })}
-    </group>
-  );
-}
-
-function DataArtifact({ color }: { color: string }) {
-  const values = ["160", "70%", "7+", "222K"];
-  return <group position={[0, 0.2, 0]}>{values.map((value, index) => <group key={value} position={[(index - 1.5) * 0.48, index * 0.16, 0]}>
-    <mesh castShadow><boxGeometry args={[0.38, 0.6 + index * 0.18, 0.38]} /><meshStandardMaterial color={index % 2 ? "#d9b44a" : color} metalness={0.2} roughness={0.42} /></mesh>
-    <Text position={[0, 0.02, 0.205]} fontSize={0.12} color="#fff8e7" anchorX="center" anchorY="middle">{value}</Text>
-  </group>)}</group>;
-}
-
-function DebateArtifact({ color }: { color: string }) {
-  return <group position={[0, 0.35, 0]}>
-    <mesh rotation={[0, 0, -0.12]} castShadow><boxGeometry args={[2.2, 0.14, 0.36]} /><meshStandardMaterial color="#d9b44a" metalness={0.55} roughness={0.28} /></mesh>
-    <mesh position={[0, -0.38, 0]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.36, 0.36, 0.36]} /><meshStandardMaterial color="#5b4634" roughness={0.72} /></mesh>
-    <mesh position={[-0.76, 0.25, 0]} castShadow><dodecahedronGeometry args={[0.36]} /><meshStandardMaterial color={color} roughness={0.45} /></mesh>
-    <mesh position={[0.76, 0.05, 0]} castShadow><dodecahedronGeometry args={[0.36]} /><meshStandardMaterial color="#166534" roughness={0.45} /></mesh>
-  </group>;
-}
-
-function PolicyStepsArtifact({ color }: { color: string }) {
-  return <group position={[0, 0.1, 0]}>
-    {[0, 1, 2, 3].map((step) => <mesh key={step} position={[(step - 1.5) * 0.48, step * 0.22, 0]} castShadow><boxGeometry args={[0.42, 0.42 + step * 0.1, 0.65]} /><meshStandardMaterial color={step === 0 ? "#9a3412" : color} metalness={0.16} roughness={0.5} /></mesh>)}
-    <Text position={[0, 1.35, 0]} fontSize={0.16} color="#ffd76a" anchorX="center">1966 → 1988</Text>
-  </group>;
-}
-
 function ArtifactShape({ artifact }: { artifact: ArtifactData }) {
-  const { kind, color, imageUrl, title } = artifact;
-  if (kind === "portrait" || kind === "document") return imageUrl ? <DocumentFrameWithImage url={imageUrl} /> : <DocumentFrameWithoutImage title={title} />;
-  if (kind === "field") return <RiceFieldArtifact color={color} />;
-  if (kind === "data") return <DataArtifact color={color} />;
-  if (kind === "debate") return <DebateArtifact color={color} />;
-  return <PolicyStepsArtifact color={color} />;
+  return artifact.imageUrl
+    ? <DocumentFrameWithImage url={artifact.imageUrl} />
+    : <DocumentFrameWithoutImage title={artifact.title} />;
 }
 
 // 6. Đèn rọi vật lý (Spotlight Fixture)
@@ -511,14 +443,13 @@ function PedestalArtifact({ artifact }: { artifact: ArtifactData }) {
   const setActiveArtifact = useStore((state) => state.setActiveArtifact);
 
   const isSelected = activeArtifactId === artifact.id;
-  const isMonument = artifact.id === 'central-question';
 
   return (
     <group position={artifact.position}>
       {/* Cozy Golden Aura Ring on Hover or Selection */}
       {(hovered || isSelected) && (
-        <mesh position={[0, isMonument ? 0.02 : -0.38, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[isMonument ? 4.2 : 1.25, isMonument ? 4.6 : 1.5, 64]} />
+        <mesh position={[0, -0.38, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[1.25, 1.5, 64]} />
           <goldenAuraMaterial
             transparent
             uColor={new THREE.Color("#ffd700")}
@@ -529,36 +460,28 @@ function PedestalArtifact({ artifact }: { artifact: ArtifactData }) {
         </mesh>
       )}
 
-      {!isMonument ? (
-        <>
-          {/* Grand Pedestal */}
-          <mesh position={[0, -0.4, 0]} receiveShadow castShadow>
-            <boxGeometry args={[1.5, 1.2, 1.5]} />
-            <meshStandardMaterial color="#cbbba8" roughness={0.6} metalness={0.1} />
-          </mesh>
-          <mesh position={[0, -0.9, 0]} receiveShadow castShadow>
-            <boxGeometry args={[1.8, 0.2, 1.8]} />
-            <meshStandardMaterial color="#8c7865" roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.22, 0]}>
-            <boxGeometry args={[1.6, 0.08, 1.6]} />
-            <meshStandardMaterial color="#ffd700" metalness={1} roughness={0.1} />
-          </mesh>
-          <mesh position={[0, 0.28, 0]} receiveShadow>
-            <boxGeometry args={[1.4, 0.05, 1.4]} />
-            <meshStandardMaterial color="#9a0000" roughness={0.9} />
-          </mesh>
-
-          {/* Cột chắn nhung xung quanh */}
-          <Stanchions position={[0, 0, 0]} size={1.8} />
-        </>
-      ) : (
-        <SteppedPodium position={[0, 0, 0]} />
-      )}
+      {/* Grand Pedestal */}
+      <mesh position={[0, -0.4, 0]} receiveShadow castShadow>
+        <boxGeometry args={[1.5, 1.2, 1.5]} />
+        <meshStandardMaterial color="#cbbba8" roughness={0.6} metalness={0.1} />
+      </mesh>
+      <mesh position={[0, -0.9, 0]} receiveShadow castShadow>
+        <boxGeometry args={[1.8, 0.2, 1.8]} />
+        <meshStandardMaterial color="#8c7865" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 0.22, 0]}>
+        <boxGeometry args={[1.6, 0.08, 1.6]} />
+        <meshStandardMaterial color="#ffd700" metalness={1} roughness={0.1} />
+      </mesh>
+      <mesh position={[0, 0.28, 0]} receiveShadow>
+        <boxGeometry args={[1.4, 0.05, 1.4]} />
+        <meshStandardMaterial color="#9a0000" roughness={0.9} />
+      </mesh>
+      <Stanchions position={[0, 0, 0]} size={1.8} />
 
       {/* Artifact Mesh - Anchored firmly to podium/pedestal */}
       <group
-        position={[0, isMonument ? 0.6 : 0.8, 0]}
+        position={[0, 0.8, 0]}
         onClick={(e) => {
           e.stopPropagation();
           setActiveArtifact(artifact.id);
@@ -573,7 +496,7 @@ function PedestalArtifact({ artifact }: { artifact: ArtifactData }) {
 
       {/* Bảng Tên Khắc Đồng Kim Loại Nẹp Gụ (Luxury Museum Brass Plaque) */}
       <group
-        position={isMonument ? [0, 0.45, 1.8] : [0, 0.32, 0.78]}
+        position={[0, 0.32, 0.78]}
         rotation={[-Math.PI / 7, 0, 0]}
       >
         {/* Khung đế gỗ mun sẫm màu bên dưới */}
