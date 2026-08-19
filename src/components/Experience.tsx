@@ -1,917 +1,222 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { CameraControls, Text, Float, Sparkles, MeshReflectorMaterial, Environment, CubicBezierLine, Image, ContactShadows, useTexture, PerformanceMonitor, BakeShadows } from "@react-three/drei";
-import { Suspense, useState, useRef, useEffect, useMemo } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Float, Html } from "@react-three/drei";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { ARTIFACTS, ROOMS, type ArtifactData } from "@/data/museumData";
 import { useStore } from "@/store/useStore";
-import { ARTIFACTS, ROOMS, ArtifactData } from "@/data/museumData";
 
-import DetailedHammerSickle from "./models/DetailedHammerSickle";
-import DetailedTank from "./models/DetailedTank";
-import DetailedTypewriter from "./models/DetailedTypewriter";
-import DetailedSandals from "./models/DetailedSandals";
-import DetailedMonument from "./models/DetailedMonument";
-import BstBacHo from "./models/BstBacHo";
-import DetailedPen from "./models/DetailedPen";
-
-import PostProcessingPipeline from "./PostProcessingPipeline";
-import "@/components/shaders/MarbleFloorShader";
-import "@/components/shaders/VolumetricLightShader";
-import "@/components/shaders/GoldenAuraMaterial";
-import { FireworksSystem } from "./effects/FireworksSystem";
-
-// ==========================================
-// CAMERA CONTROLLER
-// ==========================================
-function CameraController() {
+function CameraRig() {
   const activeRoomId = useStore((state) => state.activeRoomId);
-  const activeArtifactId = useStore((state) => state.activeArtifactId);
-  const zoomPercentage = useStore((state) => state.zoomPercentage);
-  const isTourMode = useStore((state) => state.isTourMode);
-  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
-  const setActiveRoom = useStore((state) => state.setActiveRoom);
-  const setTourMode = useStore((state) => state.setTourMode);
-  const controlsRef = useRef<any>(null);
+  const room = ROOMS.find((item) => item.id === activeRoomId) ?? ROOMS[0];
+  const { camera } = useThree();
+  const target = useMemo(() => new THREE.Vector3(...room.cameraPosition), [room.cameraPosition]);
 
-  // Tour logic
-  useEffect(() => {
-    if (!isTourMode) return;
-
-    let currentIdx = 0;
-
-    // Bắt đầu tour ngay lập tức với artifact đầu tiên
-    setActiveRoom(ARTIFACTS[0].roomId);
-    setActiveArtifact(ARTIFACTS[0].id);
-
-    const interval = setInterval(() => {
-      currentIdx++;
-      if (currentIdx >= ARTIFACTS.length) {
-        setTourMode(false);
-        clearInterval(interval);
-        return;
-      }
-      const nextArtifact = ARTIFACTS[currentIdx];
-      setActiveRoom(nextArtifact.roomId);
-      setActiveArtifact(nextArtifact.id);
-    }, 7000); // 7 seconds per artifact
-
-    return () => clearInterval(interval);
-  }, [isTourMode, setActiveArtifact, setActiveRoom, setTourMode]);
-
-  useEffect(() => {
-    if (!controlsRef.current) return;
-
-    const activeArtifact = activeArtifactId ? ARTIFACTS.find(a => a.id === activeArtifactId) : null;
-    const currentRoom = ROOMS.find((r) => r.id === activeRoomId) || ROOMS[0];
-
-    if (activeArtifact) {
-      const [x, y, z] = activeArtifact.position;
-      const isMonument = activeArtifact.type === 'monument';
-
-      // Position camera closer to object (camZ closer, camX offset for right modal)
-      const camX = isMonument ? x + 1.3 : x + 1.1;
-      const camY = isMonument ? y + 1.6 : y + 0.95;
-      const camZ = isMonument ? z + 4.6 : z + 2.9;
-
-      const targetX = x - 0.25;
-      const targetY = isMonument ? y + 1.1 : y + 0.55;
-
-      controlsRef.current.setLookAt(
-        camX, camY, camZ,
-        targetX, targetY, z,
-        true
-      );
-    } else {
-      const [cx, cy, cz] = currentRoom.cameraPosition;
-      const [tx, ty, tz] = currentRoom.targetPosition;
-      controlsRef.current.setLookAt(
-        cx, cy, cz,
-        tx, ty, tz,
-        true
-      );
-    }
-  }, [activeRoomId, activeArtifactId]);
-
-  useEffect(() => {
-    if (!controlsRef.current) return;
-    const zoomFactor = zoomPercentage / 100;
-    controlsRef.current.zoomTo(zoomFactor, true);
-  }, [zoomPercentage]);
-
-  return (
-    <CameraControls
-      ref={controlsRef}
-      makeDefault
-      maxPolarAngle={Math.PI / 2 - 0.1}
-      minPolarAngle={Math.PI / 3.6}
-      minDistance={1.8}
-      maxDistance={16}
-    />
-  );
+  useFrame((_, delta) => {
+    camera.position.lerp(target, 1 - Math.exp(-delta * 2.8));
+    camera.lookAt(0, 0.8, 0);
+  });
+  return null;
 }
 
-// ==========================================
-// ARCHITECTURAL ELEMENTS
-// ==========================================
-
-// 1. Cột bảo tàng cổ điển (Grand Pillars)
-function ArchitecturalPillar({ position }: { position: [number, number, number] }) {
+function RiceRows({ color }: { color: string }) {
   return (
-    <group position={position}>
-      {/* Bệ cột (Base) */}
-      <mesh position={[0, -0.6, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1.2, 0.8, 1.2]} />
-        <meshStandardMaterial color="#e0e0e0" roughness={0.4} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.15, 0]} castShadow receiveShadow>
-        <boxGeometry args={[1, 0.2, 1]} />
-        <meshStandardMaterial color="#ffd700" roughness={0.2} metalness={0.8} />
-      </mesh>
-      {/* Thân cột (Shaft) */}
-      <mesh position={[0, 4, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.35, 0.45, 8, 32]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.3} metalness={0.1} />
-      </mesh>
-      {/* Đầu cột (Capital) */}
-      <mesh position={[0, 8.2, 0]} castShadow>
-        <boxGeometry args={[1.2, 0.4, 1.2]} />
-        <meshStandardMaterial color="#ffd700" roughness={0.2} metalness={0.8} />
-      </mesh>
-      <mesh position={[0, 8.5, 0]} castShadow>
-        <boxGeometry args={[1.4, 0.4, 1.4]} />
-        <meshStandardMaterial color="#e0e0e0" roughness={0.4} metalness={0.1} />
-      </mesh>
+    <group position={[0, 0.07, 0.5]}>
+      {Array.from({ length: 11 }, (_, row) =>
+        Array.from({ length: 9 }, (__, column) => (
+          <group key={`${row}-${column}`} position={[(column - 4) * 0.62, 0, (row - 5) * 0.48]}>
+            <mesh rotation={[0, 0, (column % 2 ? 1 : -1) * 0.08]}>
+              <cylinderGeometry args={[0.018, 0.027, 0.42 + (row % 3) * 0.05, 5]} />
+              <meshStandardMaterial color={color} roughness={0.9} />
+            </mesh>
+            <mesh position={[0.04, 0.18, 0]} rotation={[0, 0, -0.6]}>
+              <sphereGeometry args={[0.045, 5, 4]} />
+              <meshStandardMaterial color="#d4a72c" roughness={1} />
+            </mesh>
+          </group>
+        )),
+      )}
     </group>
   );
 }
 
-// 1b. Ngôi Sao Vàng 5 Cánh 3D Thật (Golden 5-Pointed Star)
-function Golden5PointStar({ position = [0, 5.8, 0.05] }: { position?: [number, number, number] }) {
-  const starShape = useMemo(() => {
-    const shape = new THREE.Shape();
-    const outerRadius = 0.85;
-    const innerRadius = 0.34;
-    const points = 5;
-    const step = Math.PI / points;
-    for (let i = 0; i < 2 * points; i++) {
-      const r = i % 2 === 0 ? outerRadius : innerRadius;
-      const a = i * step + Math.PI / 2; // Straight up
-      const x = r * Math.cos(a);
-      const y = r * Math.sin(a);
-      if (i === 0) shape.moveTo(x, y);
-      else shape.lineTo(x, y);
-    }
-    shape.closePath();
-    return shape;
-  }, []);
-
-  const extrudeSettings = useMemo(() => ({
-    depth: 0.12,
-    bevelEnabled: true,
-    bevelSegments: 4,
-    steps: 1,
-    bevelSize: 0.05,
-    bevelThickness: 0.05,
-  }), []);
-
+function DocumentSculpture({ color }: { color: string }) {
   return (
-    <group position={position}>
-      <mesh castShadow receiveShadow>
-        <extrudeGeometry args={[starShape, extrudeSettings]} />
-        <meshStandardMaterial
-          color="#ffd700"
-          metalness={0.9}
-          roughness={0.15}
-          emissive="#ffaa00"
-          emissiveIntensity={0.35}
-        />
-      </mesh>
-    </group>
+    <Float speed={1.2} rotationIntensity={0.04} floatIntensity={0.12}>
+      <group rotation={[-0.08, -0.12, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[2.25, 2.9, 0.13]} />
+          <meshStandardMaterial color="#f8f0db" roughness={0.82} />
+        </mesh>
+        <mesh position={[0, 0, 0.075]}>
+          <planeGeometry args={[1.75, 2.35]} />
+          <meshStandardMaterial color={color} roughness={0.9} />
+        </mesh>
+        {Array.from({ length: 7 }, (_, index) => (
+          <mesh key={index} position={[-0.18, 0.83 - index * 0.27, 0.085]}>
+            <planeGeometry args={[1.05 + (index % 3) * 0.16, 0.035]} />
+            <meshBasicMaterial color="#fff7e6" />
+          </mesh>
+        ))}
+      </group>
+    </Float>
   );
 }
 
-// 2. Bức Tường Khánh Tiết (Grand Wall Panels)
-function GrandWall({ position, rotation }: { position: [number, number, number]; rotation: [number, number, number] }) {
-  return (
-    <group position={position} rotation={rotation}>
-      {/* Base Wall Backdrop */}
-      <mesh position={[0, 3.5, -0.3]} receiveShadow>
-        <boxGeometry args={[18, 9, 0.4]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.8} />
-      </mesh>
-      
-      {/* Gold Frame (Viền vàng phía sau lót) */}
-      <mesh position={[0, 4, 0.01]}>
-        <boxGeometry args={[6.4, 7.4, 0.04]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.2} />
-      </mesh>
-      
-      {/* Red Velvet Center Panel (Nền cờ đỏ) */}
-      <mesh position={[0, 4, 0.03]} receiveShadow>
-        <boxGeometry args={[6, 7, 0.02]} />
-        <meshStandardMaterial color="#d00000" roughness={0.9} />
-      </mesh>
-
-      {/* Side Marble Panels */}
-      <mesh position={[-5, 3.5, 0.01]} receiveShadow>
-        <boxGeometry args={[3, 5, 0.05]} />
-        <meshStandardMaterial color="#f4e5c8" roughness={0.2} metalness={0.1} />
-      </mesh>
-      <mesh position={[5, 3.5, 0.01]} receiveShadow>
-        <boxGeometry args={[3, 5, 0.05]} />
-        <meshStandardMaterial color="#f4e5c8" roughness={0.2} metalness={0.1} />
-      </mesh>
-
-      {/* Top Cornice (Phào đỉnh) */}
-      <mesh position={[0, 7.8, 0.1]} castShadow>
-        <boxGeometry args={[18.4, 0.6, 0.8]} />
-        <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 7.4, 0.12]}>
-        <boxGeometry args={[18.2, 0.1, 0.85]} />
-        <meshStandardMaterial color="#ffd700" metalness={1} roughness={0.1} />
-      </mesh>
-
-      {/* Ngôi Sao Vàng 5 Cánh Kim Loại Rực Rỡ */}
-      <Golden5PointStar position={[0, 5.8, 0.05]} />
-    </group>
-  );
-}
-
-// 3. Cột chắn nhung đỏ (Velvet Rope Stanchions)
-function Stanchions({ position, size = 1.6 }: { position: [number, number, number], size?: number }) {
-  const [x, y, z] = position;
-  const p = [
-    [x - size, y, z - size],
-    [x + size, y, z - size],
-    [x + size, y, z + size],
-    [x - size, y, z + size],
-  ];
-
+function CentralSymbol({ roomId, color }: { roomId: string; color: string }) {
+  if (roomId === "room-origin") return <DocumentSculpture color={color} />;
+  if (roomId === "room-turning-point") {
+    return (
+      <group>
+        <mesh position={[-1.15, 1.15, 0]} castShadow>
+          <boxGeometry args={[1.8, 2.3, 0.35]} />
+          <meshStandardMaterial color="#eab308" roughness={0.7} />
+        </mesh>
+        <mesh position={[1.15, 1.15, 0]} castShadow>
+          <boxGeometry args={[1.8, 2.3, 0.35]} />
+          <meshStandardMaterial color="#991b1b" roughness={0.75} />
+        </mesh>
+        <mesh position={[0, 1.15, 0.28]} rotation={[0, 0, Math.PI / 4]}>
+          <boxGeometry args={[0.18, 1.5, 0.16]} />
+          <meshStandardMaterial color="#f8f0db" />
+        </mesh>
+      </group>
+    );
+  }
+  if (roomId === "room-policy") {
+    return (
+      <group>
+        {[0, 1, 2, 3, 4, 5].map((step) => (
+          <mesh key={step} position={[(step - 2.5) * 0.75, 0.32 + step * 0.23, 0]} castShadow>
+            <boxGeometry args={[0.58, 0.58, 0.58]} />
+            <meshStandardMaterial color={step < 2 ? "#9a3412" : color} roughness={0.65} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
   return (
     <group>
-      {/* 4 Brass Posts */}
-      {p.map((pos, i) => (
-        <group key={i} position={[pos[0], pos[1], pos[2]]}>
-          <mesh position={[0, -0.4, 0]} castShadow>
-            <cylinderGeometry args={[0.03, 0.04, 1.2, 16]} />
-            <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.2} />
-          </mesh>
-          <mesh position={[0, 0.25, 0]} castShadow>
-            <sphereGeometry args={[0.06, 16, 16]} />
-            <meshStandardMaterial color="#ffd700" metalness={1} roughness={0.1} />
-          </mesh>
-          <mesh position={[0, -0.98, 0]} castShadow>
-            <cylinderGeometry args={[0.15, 0.2, 0.05, 16]} />
-            <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.2} />
-          </mesh>
-        </group>
-      ))}
-      {/* Velvet Ropes (CubicBezierLine) */}
-      <CubicBezierLine start={[p[0][0], 0.1, p[0][2]]} end={[p[1][0], 0.1, p[1][2]]} midA={[p[0][0], -0.2, p[0][2]]} midB={[p[1][0], -0.2, p[1][2]]} color="#aa0000" lineWidth={4} />
-      <CubicBezierLine start={[p[1][0], 0.1, p[1][2]]} end={[p[2][0], 0.1, p[2][2]]} midA={[p[1][0], -0.2, p[1][2]]} midB={[p[2][0], -0.2, p[2][2]]} color="#aa0000" lineWidth={4} />
-      <CubicBezierLine start={[p[2][0], 0.1, p[2][2]]} end={[p[3][0], 0.1, p[3][2]]} midA={[p[2][0], -0.2, p[2][2]]} midB={[p[3][0], -0.2, p[3][2]]} color="#aa0000" lineWidth={4} />
-      <CubicBezierLine start={[p[3][0], 0.1, p[3][2]]} end={[p[0][0], 0.1, p[0][2]]} midA={[p[3][0], -0.2, p[3][2]]} midB={[p[0][0], -0.2, p[0][2]]} color="#aa0000" lineWidth={4} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.16, 0]} receiveShadow>
+        <cylinderGeometry args={[2.7, 3.2, 0.28, 8]} />
+        <meshStandardMaterial color="#c7a66a" roughness={0.88} />
+      </mesh>
+      <RiceRows color="#4d7c0f" />
     </group>
   );
 }
 
-// 4. Bậc Tam Cấp (Stepped Podium) cho Sảnh Chính
-function SteppedPodium({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, -0.85, 0]} receiveShadow>
-        <cylinderGeometry args={[6, 6.2, 0.3, 64]} />
-        <meshStandardMaterial color="#3a281d" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.55, 0]} receiveShadow>
-        <cylinderGeometry args={[5, 5.2, 0.3, 64]} />
-        <meshStandardMaterial color="#5c4230" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.25, 0]} receiveShadow>
-        <cylinderGeometry args={[4, 4.2, 0.3, 64]} />
-        <meshStandardMaterial color="#7a5a44" roughness={0.6} metalness={0.1} />
-      </mesh>
-      <mesh position={[0, -0.09, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[3.8, 4, 64]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.9} roughness={0.1} />
-      </mesh>
-    </group>
-  );
-}
-
-// 4b. Bức tường ngăn phòng (Partition Wall with Door)
-function WallWithDoor({ position, rotation, width, height = 12, doorWidth = 6, doorHeight = 8 }: { position: [number, number, number], rotation: [number, number, number], width: number, height?: number, doorWidth?: number, doorHeight?: number }) {
-  const wallWidth = (width - doorWidth) / 2;
-  return (
-    <group position={position} rotation={rotation}>
-      {/* Left Wall */}
-      <mesh position={[-width/2 + wallWidth/2, height/2 - 1, 0]} receiveShadow>
-        <boxGeometry args={[wallWidth, height, 0.5]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Right Wall */}
-      <mesh position={[width/2 - wallWidth/2, height/2 - 1, 0]} receiveShadow>
-        <boxGeometry args={[wallWidth, height, 0.5]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Top Lintel */}
-      <mesh position={[0, height - (height - doorHeight)/2 - 1, 0]} receiveShadow>
-        <boxGeometry args={[doorWidth, height - doorHeight, 0.5]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Gold Arch Trim */}
-      <mesh position={[0, doorHeight - 1, 0.26]}>
-        <boxGeometry args={[doorWidth + 0.4, 0.2, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[-doorWidth/2 - 0.1, doorHeight/2 - 1, 0.26]}>
-        <boxGeometry args={[0.2, doorHeight, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[doorWidth/2 + 0.1, doorHeight/2 - 1, 0.26]}>
-        <boxGeometry args={[0.2, doorHeight, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      
-      {/* Gold Arch Trim (Back) */}
-      <mesh position={[0, doorHeight - 1, -0.26]}>
-        <boxGeometry args={[doorWidth + 0.4, 0.2, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[-doorWidth/2 - 0.1, doorHeight/2 - 1, -0.26]}>
-        <boxGeometry args={[0.2, doorHeight, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[doorWidth/2 + 0.1, doorHeight/2 - 1, -0.26]}>
-        <boxGeometry args={[0.2, doorHeight, 0.1]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-    </group>
-  );
-}
-
-// ==========================================
-// ARTIFACT COMPONENTS & MODELS
-// ==========================================
-
-function FlagImage({ url }: { url: string }) {
-  const texture = useTexture(url);
-  const img = texture.image as any;
-  const aspect = img ? img.width / img.height : 1.5;
-  return (
-    <mesh>
-      <planeGeometry args={[1.5, 1.5 / aspect]} />
-      <meshStandardMaterial map={texture} side={THREE.DoubleSide} transparent={false} />
-    </mesh>
-  );
-}
-
-function DocumentFrameWithImage({ url }: { url: string }) {
-  const texture = useTexture(url);
-  const img = texture.image as any;
-  const aspect = img ? img.width / img.height : 1.2 / 1.6;
-  const innerWidth = 1.5; // Tăng gấp 1.5 lần
-  const innerHeight = innerWidth / aspect;
-  const frameWidth = innerWidth + 0.3; // Tăng viền lên tương ứng
-  const frameHeight = innerHeight + 0.3;
-  
-  return (
-    <group rotation={[-Math.PI / 6, 0, 0]}>
-      <mesh castShadow receiveShadow position={[0, 0, -0.05]}>
-        <boxGeometry args={[frameWidth, frameHeight, 0.1]} />
-        <meshStandardMaterial color="#3a1f0b" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0, 0.01]}>
-         <planeGeometry args={[innerWidth, innerHeight]} />
-         <meshStandardMaterial color="#f0e6d2" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0, 0.02]}>
-        <planeGeometry args={[innerWidth * 0.9, innerHeight * 0.9]} />
-        {/* Sử dụng meshBasicMaterial để ảnh không bị tối đi do ánh sáng/đổ bóng, giúp ảnh rõ nét nhất */}
-        <meshBasicMaterial map={texture} transparent={false} />
-      </mesh>
-    </group>
-  );
-}
-
-function DocumentFrameWithoutImage({ title }: { title: string }) {
-  const innerWidth = 1.5;
-  const innerHeight = 2.1;
-  const frameWidth = 1.8;
-  const frameHeight = 2.4;
-
-  return (
-    <group rotation={[-Math.PI / 6, 0, 0]}>
-      <mesh castShadow receiveShadow position={[0, 0, -0.05]}>
-        <boxGeometry args={[frameWidth, frameHeight, 0.1]} />
-        <meshStandardMaterial color="#3a1f0b" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 0, 0.01]}>
-         <planeGeometry args={[innerWidth, innerHeight]} />
-         <meshStandardMaterial color="#f0e6d2" roughness={0.9} />
-      </mesh>
-      <Text position={[0, 0, 0.02]} fontSize={0.12} color="#000" maxWidth={innerWidth * 0.8} textAlign="center">
-        {title.toUpperCase()}
-      </Text>
-    </group>
-  );
-}
-
-function ArtifactShape({ artifact }: { artifact: ArtifactData }) {
-  const { type, color, id, imageUrl, title } = artifact;
-
-  switch (type) {
-    case 'monument':
-      if (id === 'main-symbol') return <DetailedHammerSickle color={color} />;
-      if (id === 'tuong-dai-bac') return <DetailedMonument />;
-      return (
-        <mesh castShadow>
-          <octahedronGeometry args={[1.2]} />
-          <meshStandardMaterial color={color} metalness={1} roughness={0.1} emissive={color} emissiveIntensity={0.2} />
-        </mesh>
-      );
-    case 'object':
-      if (id === 'xe-tang-390') return <DetailedTank />;
-      if (id === 'may-chu-bac-ho') return <DetailedTypewriter />;
-      if (id === 'dep-cao-su') return <DetailedSandals />;
-      if (id === 'wto-accession') return <DetailedPen />;
-      return (
-        <mesh castShadow>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color={color} roughness={0.5} />
-        </mesh>
-      );
-    case 'flag':
-      return (
-        <group>
-          <mesh position={[-0.8, 0, 0]} castShadow>
-             <cylinderGeometry args={[0.04, 0.04, 3.5]} />
-             <meshStandardMaterial color="#aa5500" roughness={0.8} />
-          </mesh>
-          <group position={[-0.05, 0.75, 0]}>
-            {imageUrl ? (
-              <FlagImage url={imageUrl} />
-            ) : (
-              <mesh>
-                 <planeGeometry args={[1.5, 1]} />
-                 <meshStandardMaterial color={color} side={THREE.DoubleSide} />
-              </mesh>
-            )}
-          </group>
-        </group>
-      );
-    case 'document':
-      if (imageUrl) {
-        return <DocumentFrameWithImage url={imageUrl} />;
-      }
-      return <DocumentFrameWithoutImage title={title} />;
-    default:
-      return (
-        <mesh castShadow>
-          <torusKnotGeometry args={[0.5, 0.15, 128, 32]} />
-          <meshStandardMaterial color={color} metalness={0.8} roughness={0.2} />
-        </mesh>
-      );
-  }
-}
-
-// 6. Đèn rọi vật lý (Spotlight Fixture)
-function ArtifactSpotlight({ position }: { position: [number, number, number] }) {
-  const lightRef = useRef<THREE.SpotLight>(null);
-  const targetRef = useRef<THREE.Object3D>(null);
-  const isNightMode = useStore((state) => state.isNightMode);
+function ArtifactMarker({ artifact }: { artifact: ArtifactData }) {
+  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    if (lightRef.current && targetRef.current) {
-      lightRef.current.target = targetRef.current;
-      lightRef.current.target.updateMatrixWorld();
-    }
-  }, []);
-
-  return (
-    <group position={position}>
-      {/* Dây treo đèn (Cable) */}
-      <mesh position={[0, 1.5, 0]}>
-        <cylinderGeometry args={[0.02, 0.02, 3]} />
-        <meshStandardMaterial color="#111111" />
-      </mesh>
-      {/* Thân đèn (Housing) */}
-      <mesh position={[0, 0.2, 0]}>
-        <cylinderGeometry args={[0.2, 0.2, 0.4, 16]} />
-        <meshStandardMaterial color="#111111" roughness={0.8} />
-      </mesh>
-      {/* Chao đèn (Cone) */}
-      <mesh position={[0, -0.1, 0]}>
-        <cylinderGeometry args={[0.3, 0.1, 0.4, 16]} />
-        <meshStandardMaterial color="#222222" roughness={0.8} />
-      </mesh>
-      {/* Bóng đèn phát sáng */}
-      <mesh position={[0, -0.3, 0]}>
-        <sphereGeometry args={[0.1, 16, 16]} />
-        <meshBasicMaterial color="#ffcc88" />
-      </mesh>
-
-
-
-      {/* 3D Volumetric Sunlight Beam (Tia nắng vàng 3D) */}
-      <mesh position={[0, -6, 0]}>
-        <coneGeometry args={[1.6, 12, 32, 1, true]} />
-        <volumetricLightMaterial
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          uOpacity={isNightMode ? 0.18 : 0.09}
-          uColor={new THREE.Color("#ffb855")}
-        />
-      </mesh>
-
-      <spotLight
-        ref={lightRef}
-        position={[0, -0.4, 0]}
-        angle={0.4}
-        penumbra={0.6}
-        intensity={isNightMode ? 750 : 400}
-        decay={2}
-        distance={25}
-        color="#ffcc88"
-      />
-      <object3D ref={targetRef} position={[0, -20, 0]} />
-    </group>
-  );
-}
-
-function PedestalArtifact({ artifact }: { artifact: ArtifactData }) {
-  const [hovered, setHovered] = useState(false);
-  const activeArtifactId = useStore((state) => state.activeArtifactId);
-  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
-  const visitedArtifactIds = useStore((state) => state.visitedArtifactIds);
-
-  const isSelected = activeArtifactId === artifact.id;
-  const isVisited = visitedArtifactIds.includes(artifact.id);
-  const isMonument = artifact.type === 'monument';
+    if (hovered) document.body.style.cursor = "pointer";
+    return () => {
+      document.body.style.cursor = "default";
+    };
+  }, [hovered]);
 
   return (
     <group position={artifact.position}>
-      {/* Cozy Golden Aura Ring on Hover or Selection */}
-      {(hovered || isSelected) && (
-        <mesh position={[0, isMonument ? 0.02 : -0.38, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[isMonument ? 4.2 : 1.25, isMonument ? 4.6 : 1.5, 64]} />
-          <goldenAuraMaterial
-            transparent
-            uColor={new THREE.Color("#ffd700")}
-            uGlowColor={new THREE.Color("#ff8800")}
-            uPower={2.0}
-            uIntensity={2.5}
-          />
-        </mesh>
-      )}
-
-      {!isMonument ? (
-        <>
-          {/* Grand Pedestal */}
-          <mesh position={[0, -0.4, 0]} receiveShadow castShadow>
-            <boxGeometry args={[1.5, 1.2, 1.5]} />
-            <meshStandardMaterial color="#cbbba8" roughness={0.6} metalness={0.1} />
-          </mesh>
-          <mesh position={[0, -0.9, 0]} receiveShadow castShadow>
-            <boxGeometry args={[1.8, 0.2, 1.8]} />
-            <meshStandardMaterial color="#8c7865" roughness={0.7} />
-          </mesh>
-          <mesh position={[0, 0.22, 0]}>
-            <boxGeometry args={[1.6, 0.08, 1.6]} />
-            <meshStandardMaterial color="#ffd700" metalness={1} roughness={0.1} />
-          </mesh>
-          <mesh position={[0, 0.28, 0]} receiveShadow>
-            <boxGeometry args={[1.4, 0.05, 1.4]} />
-            <meshStandardMaterial color="#9a0000" roughness={0.9} />
-          </mesh>
-          
-          {/* Cột chắn nhung xung quanh */}
-          <Stanchions position={[0, 0, 0]} size={1.8} />
-        </>
-      ) : (
-        <SteppedPodium position={[0, 0, 0]} />
-      )}
-
-      {/* Artifact Mesh - Anchored firmly to podium/pedestal */}
-      <group 
-        position={[0, isMonument ? 0.6 : 0.8, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
+      <mesh
+        castShadow
+        scale={hovered ? 1.08 : 1}
+        onClick={(event) => {
+          event.stopPropagation();
           setActiveArtifact(artifact.id);
         }}
-        onPointerOver={() => setHovered(true)}
+        onPointerOver={(event) => {
+          event.stopPropagation();
+          setHovered(true);
+        }}
         onPointerOut={() => setHovered(false)}
       >
-        <group scale={hovered || isSelected ? 1.08 : 1}>
-           <ArtifactShape artifact={artifact} />
-        </group>
-      </group>
-
-      {/* Bảng Tên Khắc Đồng Kim Loại Nẹp Gụ (Luxury Museum Brass Plaque) */}
-      <group 
-        position={isMonument ? [0, 0.45, 1.8] : [0, 0.32, 0.78]} 
-        rotation={[-Math.PI / 7, 0, 0]}
-      >
-        {/* Khung đế gỗ mun sẫm màu bên dưới */}
-        <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[1.3, 0.32, 0.03]} />
-          <meshStandardMaterial color="#1f140e" roughness={0.7} metalness={0.1} />
-        </mesh>
-        
-        {/* Mặt biển đồng mạ vàng bóng bẩy */}
-        <mesh position={[0, 0, 0.018]}>
-          <boxGeometry args={[1.22, 0.26, 0.01]} />
-          <meshStandardMaterial color="#c59b27" roughness={0.25} metalness={0.85} />
-        </mesh>
-        
-        {/* Viền nổi mạ vàng sáng bóng xung quanh mặt biển */}
-        <mesh position={[0, 0, 0.022]}>
-          <boxGeometry args={[1.24, 0.28, 0.005]} />
-          <meshStandardMaterial color="#ffd700" roughness={0.1} metalness={0.95} />
-        </mesh>
-
-        {/* 2 Đinh tán kim loại 2 bên góc */}
-        <mesh position={[-0.56, 0, 0.025]} rotation={[0, Math.PI / 2, 0]}>
-          <cylinderGeometry args={[0.015, 0.015, 0.01, 16]} />
-          <meshStandardMaterial color="#4a3517" roughness={0.3} metalness={0.9} />
-        </mesh>
-        <mesh position={[0.56, 0, 0.025]} rotation={[0, Math.PI / 2, 0]}>
-          <cylinderGeometry args={[0.015, 0.015, 0.01, 16]} />
-          <meshStandardMaterial color="#4a3517" roughness={0.3} metalness={0.9} />
-        </mesh>
-
-        {/* Chữ khắc kim loại sẫm màu sang trọng */}
-        <Text
-          position={[0, 0, 0.026]}
-          fontSize={0.065}
-          color="#1a0f05"
-          anchorX="center"
-          anchorY="middle"
-          maxWidth={1.15}
-          textAlign="center"
-          letterSpacing={0.05}
-        >
-          {artifact.title.toUpperCase()}
-        </Text>
-      </group>
-
-      {/* Đèn chiếu rọi riêng cho từng hiện vật (treo từ trần nhà xuống) */}
-      <ArtifactSpotlight position={[0, 12, 0]} />
+        {artifact.kind === "document" ? (
+          <boxGeometry args={[1.15, 1.5, 0.18]} />
+        ) : artifact.kind === "portrait" ? (
+          <cylinderGeometry args={[0.72, 0.84, 1.45, 10]} />
+        ) : artifact.kind === "data" ? (
+          <dodecahedronGeometry args={[0.88, 0]} />
+        ) : (
+          <boxGeometry args={[1.22, 1.22, 1.22]} />
+        )}
+        <meshStandardMaterial color={artifact.color} roughness={0.65} metalness={0.04} />
+      </mesh>
+      <mesh position={[0, -0.92, 0]} receiveShadow>
+        <cylinderGeometry args={[0.66, 0.82, 0.3, 12]} />
+        <meshStandardMaterial color="#d6c8aa" roughness={0.95} />
+      </mesh>
+      <Html center position={[0, -1.35, 0]} distanceFactor={8} transform occlude="blending">
+        <button className="scene-label" onClick={() => setActiveArtifact(artifact.id)}>
+          <span>{artifact.date}</span>
+          {artifact.title}
+        </button>
+      </Html>
     </group>
   );
 }
 
-// 5. Tường bao quanh bảo tàng (Perimeter Walls)
-function PerimeterWalls() {
-  return (
-    <group>
-      {/* Tường phía sau (Back Wall) */}
-      <mesh position={[0, 5.5, -32]} receiveShadow>
-        <boxGeometry args={[64, 13, 1]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Tường phía trước (Front Wall) */}
-      <mesh position={[0, 5.5, 32]} receiveShadow>
-        <boxGeometry args={[64, 13, 1]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Tường bên trái (Left Wall) */}
-      <mesh position={[-32, 5.5, 0]} receiveShadow>
-        <boxGeometry args={[1, 13, 64]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-      {/* Tường bên phải (Right Wall) */}
-      <mesh position={[32, 5.5, 0]} receiveShadow>
-        <boxGeometry args={[1, 13, 64]} />
-        <meshStandardMaterial color="#e8d5b5" roughness={0.9} />
-      </mesh>
-
-      {/* Phào chỉ chân tường (Baseboards) */}
-      <mesh position={[0, -0.5, -31.4]}>
-         <boxGeometry args={[64, 1, 0.2]} />
-         <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
-      </mesh>
-      <mesh position={[0, -0.5, 31.4]}>
-         <boxGeometry args={[64, 1, 0.2]} />
-         <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
-      </mesh>
-      <mesh position={[-31.4, -0.5, 0]}>
-         <boxGeometry args={[0.2, 1, 64]} />
-         <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
-      </mesh>
-      <mesh position={[31.4, -0.5, 0]}>
-         <boxGeometry args={[0.2, 1, 64]} />
-         <meshStandardMaterial color="#e0e0e0" roughness={0.5} />
-      </mesh>
-      
-      {/* Phào chỉ vàng chạy dọc chân tường */}
-      <mesh position={[0, 0.1, -31.4]}>
-         <boxGeometry args={[64, 0.1, 0.25]} />
-         <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.1, 31.4]}>
-         <boxGeometry args={[64, 0.1, 0.25]} />
-         <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[-31.4, 0.1, 0]}>
-         <boxGeometry args={[0.25, 0.1, 64]} />
-         <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[31.4, 0.1, 0]}>
-         <boxGeometry args={[0.25, 0.1, 64]} />
-         <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-
-      {/* Trần nhà chính (Architectural Museum Ceiling with Warm Glow) */}
-      <mesh position={[0, 12.0, 0]} receiveShadow>
-        <boxGeometry args={[64, 0.5, 64]} />
-        <meshStandardMaterial color="#5a402d" roughness={0.7} emissive="#2b1a0d" emissiveIntensity={0.2} />
-      </mesh>
-      {/* Phào vòm trần (Ceiling Cornice) */}
-      <mesh position={[0, 11.7, 0]}>
-        <boxGeometry args={[62, 0.2, 62]} />
-        <meshStandardMaterial color="#ffd700" metalness={0.8} roughness={0.2} />
-      </mesh>
-      <mesh position={[0, 11.5, 0]}>
-        <boxGeometry args={[60, 0.2, 60]} />
-        <meshStandardMaterial color="#3a2214" roughness={0.8} />
-      </mesh>
-      {/* Mạng lưới dầm gỗ trần cao cấp (Coffered Ceiling Beams) */}
-      {[...Array(9)].map((_, i) => (
-        <mesh key={`grid-x-${i}`} position={[-24 + i * 6, 11.75, 0]}>
-          <boxGeometry args={[0.3, 0.2, 64]} />
-          <meshStandardMaterial color="#4a2c17" roughness={0.8} />
-        </mesh>
-      ))}
-      {[...Array(9)].map((_, i) => (
-        <mesh key={`grid-z-${i}`} position={[0, 11.75, -24 + i * 6]}>
-          <boxGeometry args={[64, 0.2, 0.3]} />
-          <meshStandardMaterial color="#4a2c17" roughness={0.8} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-// ==========================================
-// SCENE ASSEMBLY
-// ==========================================
-function MuseumArchitecture() {
-  const setActiveRoom = useStore((state) => state.setActiveRoom);
+function MuseumScene() {
   const activeRoomId = useStore((state) => state.activeRoomId);
-
-  // Hệ thống cột đá (Được bố trí dọc theo các bức tường để không chắn tầm nhìn)
-  const pillars: [number, number, number][] = [
-    // Dọc tường trái của Sảnh Chính (x = -12)
-    [-12, 0, -8], [-12, 0, 4], [-12, 0, 16], [-12, 0, 28],
-    // Dọc tường phải của Sảnh Chính (x = 12)
-    [12, 0, -8], [12, 0, 4], [12, 0, 16], [12, 0, 28],
-    // Dọc tường ngăn phía sau (z = -8) - Tránh các cửa ra vào ở x=-22, x=0, x=22
-    [-31, 0, -8], [-28, 0, -8], [-16, 0, -8],
-    [-8, 0, -8], [8, 0, -8],
-    [16, 0, -8], [28, 0, -8], [31, 0, -8],
-    // Cột góc tường sau cùng
-    [-31, 0, -31], [31, 0, -31]
-  ];
+  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
+  const room = ROOMS.find((item) => item.id === activeRoomId) ?? ROOMS[0];
+  const artifacts = ARTIFACTS.filter((item) => item.roomId === activeRoomId);
 
   return (
-    <group>
-      {/* Tường bao quanh tòa nhà */}
-      <PerimeterWalls />
-      {/* Sàn đá cẩm thạch đen bóng cao cấp */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1, 0]} receiveShadow>
-        <planeGeometry args={[100, 100]} />
-        <meshStandardMaterial color="#1c1410" roughness={0.25} metalness={0.4} />
-      </mesh>
+    <>
+      <color attach="background" args={["#e8dfca"]} />
+      <fog attach="fog" args={["#e8dfca", 12, 25]} />
+      <ambientLight intensity={1.5} />
+      <directionalLight position={[5, 9, 5]} intensity={2.4} castShadow shadow-mapSize={[1024, 1024]} />
+      <hemisphereLight args={["#fff7e6", "#7a684b", 1.1]} />
+      <CameraRig />
 
-      {/* Hoa văn sàn trung tâm (Lotus Grid) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.99, 0]}>
-        <circleGeometry args={[7, 64]} />
-        <meshBasicMaterial color="#7a0000" transparent opacity={0.3} />
-      </mesh>
-      {[0, 1, 2, 3].map((i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, i * Math.PI / 4]} position={[0, -0.98, 0]}>
-          <ringGeometry args={[6.8, 7, 64]} />
-          <meshBasicMaterial color="#ffd700" />
+      <group onClick={() => setActiveArtifact(null)}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <planeGeometry args={[24, 20]} />
+          <meshStandardMaterial color="#ddd0b4" roughness={1} />
         </mesh>
-      ))}
-
-      {/* Thảm đỏ (Red Carpets) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-10, -0.98, 0]}>
-        <planeGeometry args={[14, 4]} />
-        <meshStandardMaterial color="#550000" roughness={0.9} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[10, -0.98, 0]}>
-        <planeGeometry args={[14, 4]} />
-        <meshStandardMaterial color="#550000" roughness={0.9} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.98, -10]}>
-        <planeGeometry args={[4, 14]} />
-        <meshStandardMaterial color="#550000" roughness={0.9} />
-      </mesh>
-
-      {/* Tường Khánh Tiết */}
-      <GrandWall position={[0, -1, -31.5]} rotation={[0, 0, 0]} />
-      <GrandWall position={[-31.5, -1, 0]} rotation={[0, Math.PI / 2, 0]} />
-      <GrandWall position={[31.5, -1, 0]} rotation={[0, -Math.PI / 2, 0]} />
-
-      {/* Mô hình BstBacHo bổ sung ở góc phải của sảnh (tránh bị trùng cột đá ở x=12, z=-8) */}
-      <BstBacHo position={[9, -1, -6]} rotation={[0, -Math.PI / 4, 0]} />
-
-      {/* Cột đá */}
-      {pillars.map((pos, idx) => (
-        <ArchitecturalPillar key={idx} position={pos} />
-      ))}
-
-      {/* Tường chia phòng (Partition Walls) */}
-      {/* 1. Ngăn cách Sảnh Chính & Phòng 1 (Dọc bên trái) */}
-      <WallWithDoor position={[-12, 0, 12]} rotation={[0, Math.PI / 2, 0]} width={40} />
-      {/* 2. Ngăn cách Sảnh Chính & Phòng 3 (Dọc bên phải) */}
-      <WallWithDoor position={[12, 0, 12]} rotation={[0, Math.PI / 2, 0]} width={40} />
-      {/* 3. Ngăn cách dãy phòng trước và Phòng 2 (Ngang ở giữa) */}
-      <WallWithDoor position={[-22, 0, -8]} rotation={[0, 0, 0]} width={20} /> {/* Phòng 1 ra Phòng 2 */}
-      <WallWithDoor position={[0, 0, -8]} rotation={[0, 0, 0]} width={24} doorWidth={8} /> {/* Sảnh Chính ra Phòng 2 */}
-      <WallWithDoor position={[22, 0, -8]} rotation={[0, 0, 0]} width={20} /> {/* Phòng 3 ra Phòng 2 */}
-
-
-    </group>
+        <mesh position={[0, 3.7, -4.2]} receiveShadow>
+          <boxGeometry args={[15, 7.4, 0.25]} />
+          <meshStandardMaterial color="#efe7d4" roughness={0.96} />
+        </mesh>
+        <mesh position={[-7.4, 3.5, 0]} receiveShadow>
+          <boxGeometry args={[0.22, 7, 8.5]} />
+          <meshStandardMaterial color="#e5dac2" />
+        </mesh>
+        <mesh position={[7.4, 3.5, 0]} receiveShadow>
+          <boxGeometry args={[0.22, 7, 8.5]} />
+          <meshStandardMaterial color="#e5dac2" />
+        </mesh>
+        <group position={[0, 0.15, -0.65]}>
+          <CentralSymbol roomId={activeRoomId} color={room.color} />
+        </group>
+        {artifacts.map((artifact) => (
+          <ArtifactMarker artifact={artifact} key={artifact.id} />
+        ))}
+      </group>
+    </>
   );
 }
 
 export default function Experience() {
-  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
-  const isNightMode = useStore((state) => state.isNightMode);
-  const visitedArtifactIds = useStore((state) => state.visitedArtifactIds);
-  const [dpr, setDpr] = useState(1.5);
-
-  const bg = isNightMode ? "#050302" : "#0c0806";
-
   return (
-    <Canvas
-      shadows={{ type: THREE.PCFSoftShadowMap }}
-      dpr={dpr}
-      camera={{ position: [0, 5.5, 28], fov: 55 }}
-      gl={{
-        antialias: true,
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: isNightMode ? 0.7 : 0.85,
-      }}
-      onPointerMissed={() => setActiveArtifact(null)}
-    >
-      <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, isNightMode ? 25 : 45, isNightMode ? 100 : 120]} />
-
-      <Suspense fallback={null}>
-        <PerformanceMonitor onIncline={() => setDpr(1.5)} onDecline={() => setDpr(1)} />
-        <BakeShadows />
-        {/* Environment Map */}
-        <Environment preset={isNightMode ? "night" : "sunset"} />
-
-        {/* Global Lights - Dynamic Day / Night Exhibition Mode */}
-        <ambientLight intensity={isNightMode ? 0.08 : 0.25} color="#fff0db" />
-        <hemisphereLight intensity={isNightMode ? 0.12 : 0.35} color="#ffcc88" groundColor="#150a04" />
-        <directionalLight
-          position={[0, 22, 18]}
-          intensity={isNightMode ? 0.35 : 1.2}
-          color="#fff2db"
-          castShadow
-          shadow-mapSize={typeof window !== 'undefined' && window.innerWidth > 768 ? [2048, 2048] : [1024, 1024]}
-          shadow-camera-left={-40}
-          shadow-camera-right={40}
-          shadow-camera-top={40}
-          shadow-camera-bottom={-40}
-          shadow-camera-near={0.5}
-          shadow-camera-far={80}
-          shadow-bias={-0.0001}
-          shadow-normalBias={0.01}
-        />
-        <directionalLight position={[-15, 15, -15]} intensity={isNightMode ? 0.15 : 0.3} color="#ffe4cc" />
-
-        {/* Layer 1: Hạt sương mạ vàng lơ lửng lung linh (Gold Dust Sparkles) */}
-        <Sparkles count={isNightMode ? 800 : 600} scale={[65, 24, 65]} size={isNightMode ? 4.0 : 3.2} speed={0.25} color="#ffd700" opacity={isNightMode ? 0.85 : 0.7} />
-        {/* Layer 2: Hạt đom đốm cam ấm lơ lửng tầng thấp (Warm Amber Embers) */}
-        <Sparkles count={isNightMode ? 500 : 350} scale={[45, 14, 45]} size={isNightMode ? 5.5 : 4.5} speed={0.4} color="#ff9933" opacity={isNightMode ? 0.75 : 0.5} />
-        {/* Layer 3: Hạt kim tuyến ánh bạc lấp lánh tầng cao (Silver Light Dust) */}
-        <Sparkles count={250} scale={[55, 20, 55]} size={2.0} speed={0.15} color="#ffffff" opacity={0.4} />
-
-        {/* Cấu trúc Bảo tàng & Hiện vật */}
-        <MuseumArchitecture />
-        {ARTIFACTS.map((artifact) => (
-          <PedestalArtifact key={artifact.id} artifact={artifact} />
-        ))}
-        
-        {/* Pháo hoa khi hoàn thành 15/15 */}
-        <FireworksSystem isActive={visitedArtifactIds.length === 15} />
-
-        {/* Camera */}
-        <CameraController />
-
-        {/* Post Processing Pipeline */}
-        <PostProcessingPipeline />
-      </Suspense>
-    </Canvas>
+    <div className="canvas-layer" aria-label="Không gian bảo tàng 3D tương tác">
+      <Canvas
+        shadows
+        dpr={[1, 1.6]}
+        camera={{ position: [0, 4.8, 11], fov: 48, near: 0.1, far: 50 }}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
+        fallback={
+          <div className="webgl-fallback">
+            Trình duyệt không hỗ trợ WebGL. Bạn vẫn có thể dùng thanh điều hướng để đọc toàn bộ nội dung bảo tàng.
+          </div>
+        }
+      >
+        <MuseumScene />
+      </Canvas>
+    </div>
   );
 }

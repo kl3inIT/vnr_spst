@@ -1,351 +1,249 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { ARTIFACTS, MEMBERS, POLICY_TIMELINE, ROOMS, SOURCES } from "@/data/museumData";
 import { useStore } from "@/store/useStore";
-import { ROOMS, ARTIFACTS } from "@/data/museumData";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Play, Square, BookOpen, Volume2, VolumeX, Minus, Plus, HelpCircle, CheckCircle2, Moon, Sun, Award, Sparkles } from "lucide-react";
-import { soundFx } from "@/utils/soundEffects";
+
+const QUIZ = [
+  {
+    text: "Kim Ngọc là người trực tiếp ký Nghị quyết 68.",
+    answer: false,
+    explanation: "Trần Quốc Phi ký sau khi Ban Thường vụ thống nhất; Kim Ngọc chủ trì, định hướng và thúc đẩy.",
+  },
+  {
+    text: "Khoán hộ năm 1966 đồng nghĩa chuyển quyền sở hữu ruộng đất cho hộ.",
+    answer: false,
+    explanation: "Cốt lõi là đổi trách nhiệm và quyền lợi trong khung hợp tác xã, không phải tư hữu hóa đất đai.",
+  },
+  {
+    text: "Khoán 100 và Khoán 10 là bản sao nguyên xi của thử nghiệm Vĩnh Phúc.",
+    answer: false,
+    explanation: "Đây là chuỗi điều chỉnh chính sách trong bối cảnh và phạm vi khác, không phải sao chép nguyên xi.",
+  },
+];
+
+const MATCHES = [
+  ["160", "Số HTX đạt mức năng suất được ghi nhận"],
+  ["≈70%", "Tỷ trọng trong tổng số HTX"],
+  ["5–7+", "Tấn/ha bình quân của nhóm HTX này"],
+  ["222.000", "Tấn lương thực quy thóc năm 1967"],
+] as const;
+
+type Panel = "sources" | "members" | "quiz" | "game" | "timeline" | null;
+
+function OpeningVote() {
+  const vote = useStore((state) => state.debateVote);
+  const setVote = useStore((state) => state.setDebateVote);
+  if (vote) return null;
+  return (
+    <motion.div className="vote-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.section className="vote-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} aria-labelledby="vote-title">
+        <p className="kicker">TRƯỚC KHI BƯỚC VÀO</p>
+        <h1 id="vote-title">Giao khoán tới hộ: tiến bộ hay thụt lùi?</h1>
+        <p>Hãy chọn theo trực giác. Cuối hành trình, bảo tàng sẽ hỏi lại bạn bằng dữ kiện và bối cảnh.</p>
+        <div className="vote-options">
+          <button onClick={() => setVote("progress")}>
+            <strong>Tiến bộ</strong>
+            <span>Gắn trách nhiệm với kết quả</span>
+          </button>
+          <button onClick={() => setVote("regression")}>
+            <strong>Thụt lùi</strong>
+            <span>Có nguy cơ làm suy yếu tập thể</span>
+          </button>
+        </div>
+        <small>Lựa chọn được lưu trên thiết bị này, không gửi lên máy chủ.</small>
+      </motion.section>
+    </motion.div>
+  );
+}
+
+function ArtifactPanel() {
+  const artifact = useStore((state) => state.getActiveArtifact());
+  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
+  return (
+    <AnimatePresence>
+      {artifact && (
+        <motion.aside className="artifact-panel" initial={{ x: "110%" }} animate={{ x: 0 }} exit={{ x: "110%" }} transition={{ type: "spring", damping: 27 }} aria-live="polite">
+          <button className="icon-button close-button" onClick={() => setActiveArtifact(null)} aria-label="Đóng hiện vật">×</button>
+          {artifact.imageUrl && (
+            <div className="artifact-image">
+              <Image src={artifact.imageUrl} alt={artifact.title} fill sizes="(max-width: 720px) 100vw, 460px" priority />
+            </div>
+          )}
+          <div className="artifact-copy">
+            <p className="kicker">{artifact.eyebrow}</p>
+            <p className="artifact-date">{artifact.date}</p>
+            <h2>{artifact.title}</h2>
+            <p>{artifact.description}</p>
+            <blockquote>{artifact.takeaway}</blockquote>
+            {(artifact.credit || artifact.sourceUrl) && (
+              <div className="provenance">
+                {artifact.credit && <p>{artifact.credit}</p>}
+                {artifact.rightsNote && <p>{artifact.rightsNote}</p>}
+                {artifact.sourceUrl && <a href={artifact.sourceUrl} target="_blank" rel="noreferrer">Mở trang nguồn ↗</a>}
+              </div>
+            )}
+          </div>
+        </motion.aside>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function MatchGame() {
+  const [number, setNumber] = useState<string | null>(null);
+  const [matched, setMatched] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("Chọn một con số, rồi chọn ý nghĩa tương ứng.");
+  const meanings = useMemo(() => [...MATCHES.map((item) => item[1])].sort((a, b) => b.localeCompare(a)), []);
+  const chooseMeaning = (meaning: string) => {
+    if (!number) return;
+    const correct = MATCHES.find((item) => item[0] === number)?.[1];
+    if (correct === meaning) {
+      setMatched((current) => ({ ...current, [number]: meaning }));
+      setMessage("Chính xác. Tiếp tục với con số khác.");
+      setNumber(null);
+    } else setMessage("Chưa đúng — hãy thử ghép lại.");
+  };
+  return (
+    <div className="game-layout">
+      <p className="game-status" aria-live="polite">{message}</p>
+      <div className="match-columns">
+        <div>
+          <h3>Con số</h3>
+          {MATCHES.map(([value]) => (
+            <button key={value} disabled={Boolean(matched[value])} className={number === value ? "selected" : ""} onClick={() => setNumber(value)}>{value}{matched[value] ? " ✓" : ""}</button>
+          ))}
+        </div>
+        <div>
+          <h3>Ý nghĩa</h3>
+          {meanings.map((meaning) => (
+            <button key={meaning} disabled={Object.values(matched).includes(meaning)} onClick={() => chooseMeaning(meaning)}>{meaning}</button>
+          ))}
+        </div>
+      </div>
+      {Object.keys(matched).length === 4 && <strong className="game-complete">Hoàn thành 4/4 — các số liệu đều thuộc cuối năm 1967.</strong>}
+    </div>
+  );
+}
+
+function Quiz() {
+  const [answers, setAnswers] = useState<Array<boolean | null>>([null, null, null]);
+  return (
+    <div className="quiz-list">
+      {QUIZ.map((item, index) => {
+        const answer = answers[index];
+        return (
+          <article key={item.text}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <p>{item.text}</p>
+            <div>
+              <button onClick={() => setAnswers((current) => current.map((value, i) => i === index ? true : value))}>Đúng</button>
+              <button onClick={() => setAnswers((current) => current.map((value, i) => i === index ? false : value))}>Sai</button>
+            </div>
+            {answer !== null && <small className={answer === item.answer ? "correct" : "incorrect"}>{answer === item.answer ? "Chính xác. " : "Chưa chính xác. "}{item.explanation}</small>}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function Timeline() {
+  const [active, setActive] = useState(0);
+  return (
+    <div className="timeline-widget">
+      <div className="timeline-years">
+        {POLICY_TIMELINE.map((item, index) => <button key={item.year} className={index === active ? "active" : ""} onClick={() => setActive(index)}>{item.year}</button>)}
+      </div>
+      <motion.div key={active} className="timeline-detail" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+        <p className="kicker">{POLICY_TIMELINE[active].year}</p>
+        <h3>{POLICY_TIMELINE[active].title}</h3>
+        <p>{POLICY_TIMELINE[active].text}</p>
+      </motion.div>
+      <p className="timeline-caveat">Đây là quá trình điều chỉnh chính sách, không phải đường thẳng sao chép Nghị quyết 68.</p>
+    </div>
+  );
+}
+
+function Modal({ panel, close }: { panel: Exclude<Panel, null>; close: () => void }) {
+  const titles = { sources: "Nguồn và quyền sử dụng", members: "Nhóm thực hiện", quiz: "Kiểm tra ba lầm tưởng", game: "Ghép số cuối năm 1967", timeline: "Dòng chính sách 1966–1988" };
+  return (
+    <motion.div className="modal-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={close}>
+      <motion.section className="content-modal" initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} onMouseDown={(event) => event.stopPropagation()} aria-modal="true" role="dialog" aria-label={titles[panel]}>
+        <button className="icon-button close-button" onClick={close} aria-label="Đóng">×</button>
+        <p className="kicker">BẢO TÀNG KHOÁN HỘ VĨNH PHÚC</p>
+        <h2>{titles[panel]}</h2>
+        {panel === "game" && <MatchGame />}
+        {panel === "timeline" && <Timeline />}
+        {panel === "quiz" && <Quiz />}
+        {panel === "sources" && <div className="source-list">{SOURCES.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer"><span>{source.label}</span><b>↗</b></a>)}<p className="rights-warning">Ảnh tư liệu từ báo chí/bảo tàng được dùng cho bản trình diễn giáo dục với credit rõ ràng. Các trang nguồn không công bố giấy phép mở; cần xin phép trước khi phát hành thương mại hoặc tái phân phối ảnh.</p></div>}
+        {panel === "members" && <div className="member-grid">{MEMBERS.map((member) => <div key={member}>{member}</div>)}</div>}
+      </motion.section>
+    </motion.div>
+  );
+}
 
 export default function OverlayUI() {
-  const [isListOpen, setIsListOpen] = useState(false);
-  const [activeHintId, setActiveHintId] = useState<string | null>(null);
-  const [showBadgeModal, setShowBadgeModal] = useState(false);
-
   const activeRoomId = useStore((state) => state.activeRoomId);
   const setActiveRoom = useStore((state) => state.setActiveRoom);
-  const activeArtifactId = useStore((state) => state.activeArtifactId);
-  const setActiveArtifact = useStore((state) => state.setActiveArtifact);
-  const visitedArtifactIds = useStore((state) => state.visitedArtifactIds);
-  const isMuted = useStore((state) => state.isMuted);
-  const toggleMute = useStore((state) => state.toggleMute);
-  const isNightMode = useStore((state) => state.isNightMode);
-  const toggleNightMode = useStore((state) => state.toggleNightMode);
-  const zoomPercentage = useStore((state) => state.zoomPercentage);
-  const zoomIn = useStore((state) => state.zoomIn);
-  const zoomOut = useStore((state) => state.zoomOut);
-  const isTourMode = useStore((state) => state.isTourMode);
-  const setTourMode = useStore((state) => state.setTourMode);
-
-  const activeArtifact = activeArtifactId ? ARTIFACTS.find((a) => a.id === activeArtifactId) : null;
-  const currentRoom = ROOMS.find((r) => r.id === activeRoomId) || ROOMS[0];
-
-  const allVisited = visitedArtifactIds.length === ARTIFACTS.length;
-  const formattedCounter = `${String(visitedArtifactIds.length).padStart(2, "0")}/${String(ARTIFACTS.length).padStart(2, "0")}`;
-
-  const [hasTriggeredAchievement, setHasTriggeredAchievement] = useState(false);
-  useEffect(() => {
-    if (allVisited && !hasTriggeredAchievement) {
-      setHasTriggeredAchievement(true);
-      setShowBadgeModal(true);
-      if (!isMuted) {
-        soundFx.playFireworks();
-      }
-    }
-  }, [allVisited, hasTriggeredAchievement, isMuted]);
-
-  const handleHintClick = (artifactId: string, roomId: string) => {
-    if (!isMuted) soundFx.playWoodClick();
-    setActiveHintId(activeHintId === artifactId ? null : artifactId);
-    setActiveRoom(roomId);
-  };
-
-  const handleRoomClick = (roomId: string) => {
-    if (!isMuted) soundFx.playWhoosh();
-    setActiveRoom(roomId);
-  };
-
-  const handleArtifactSelect = (artifactId: string, roomId?: string) => {
-    if (!isMuted) soundFx.playBrassChime();
-    if (roomId) setActiveRoom(roomId);
-    setActiveArtifact(artifactId);
-  };
+  const visited = useStore((state) => state.visitedArtifactIds);
+  const vote = useStore((state) => state.debateVote);
+  const room = ROOMS.find((item) => item.id === activeRoomId) ?? ROOMS[0];
+  const roomArtifacts = ARTIFACTS.filter((item) => item.roomId === activeRoomId);
+  const [panel, setPanel] = useState<Panel>(null);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 p-4 md:p-6 flex flex-col justify-between select-none">
-      {/* Top Header Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        {/* Top-Left Pill / Expandable Checklist Dropdown */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-auto flex flex-col bg-black/90 md:backdrop-blur-xl rounded-2xl border border-white/10 text-white shadow-2xl w-full md:w-[420px] overflow-hidden"
-        >
-          {/* Header Bar inside Pill */}
-          <div className="flex items-center justify-between gap-3 p-3.5 border-b border-white/10">
-            <div className="flex-1 text-xs md:text-sm font-medium leading-snug">
-              <span>
-                Đây là không gian triển lãm <strong className="text-yellow-400">{currentRoom.name}</strong>. Hãy tìm đủ {ARTIFACTS.length} báu vật để khám phá nhé!
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                if (!isMuted) soundFx.playWoodClick();
-                setIsListOpen(!isListOpen);
-              }}
-              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg text-xs font-mono font-bold tracking-widest text-yellow-400 border border-white/10 shrink-0"
-              title={isListOpen ? "Thu gọn danh sách" : "Mở danh sách hiện vật"}
-            >
-              <span>{formattedCounter}</span>
-              <span className="text-gray-300 font-bold">{isListOpen ? "—" : "+"}</span>
-            </button>
-          </div>
+    <div className="ui-layer">
+      <header className="museum-header">
+        <button className="brand" onClick={() => setActiveRoom("main-hall")}>
+          <span>KH</span>
+          <div><b>Khoán hộ Vĩnh Phúc</b><small>Bảo tàng số 3D • 1963–1988</small></div>
+        </button>
+        <nav aria-label="Thông tin bảo tàng">
+          <button onClick={() => setPanel("sources")}>Nguồn</button>
+          <button onClick={() => setPanel("members")}>Nhóm</button>
+          <button className="primary-action" onClick={() => setPanel("quiz")}>Quiz cuối hành trình</button>
+        </nav>
+      </header>
 
-          {/* Expandable Artifact Checklist */}
-          <AnimatePresence>
-            {isListOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="max-h-72 overflow-y-auto divide-y divide-white/10 text-xs bg-black/40"
-              >
-                {ARTIFACTS.map((artifact) => {
-                  const isVisited = visitedArtifactIds.includes(artifact.id);
-                  const room = ROOMS.find((r) => r.id === artifact.roomId);
-                  const showHint = activeHintId === artifact.id;
+      <section className="room-intro" aria-live="polite">
+        <p className="kicker">PHÒNG {room.index} • {room.period}</p>
+        <h1>{room.name}</h1>
+        <p>{room.description}</p>
+        <blockquote>{room.question}</blockquote>
+        {vote && activeRoomId === "main-hall" && <small>Lựa chọn ban đầu của bạn: <b>{vote === "progress" ? "Tiến bộ" : "Thụt lùi"}</b></small>}
+      </section>
 
-                  return (
-                    <div key={artifact.id} className="flex flex-col px-4 py-2.5 hover:bg-white/5 transition-colors">
-                      <div className="flex items-center justify-between gap-2">
-                        <div
-                          onClick={() => {
-                            if (isVisited) {
-                              handleArtifactSelect(artifact.id, artifact.roomId);
-                            }
-                          }}
-                          className={`flex items-center gap-2 cursor-pointer ${
-                            isVisited ? "line-through text-gray-400 opacity-65" : "text-white font-medium"
-                          }`}
-                        >
-                          {isVisited ? (
-                            <CheckCircle2 size={13} className="text-green-500 shrink-0" />
-                          ) : (
-                            <span className="font-mono text-gray-400 font-bold">???</span>
-                          )}
-                          <span>{isVisited ? artifact.title : "???"}</span>
-                        </div>
-
-                        {!isVisited && (
-                          <button
-                            onClick={() => handleHintClick(artifact.id, artifact.roomId)}
-                            className="flex items-center gap-1 text-[11px] text-yellow-400 hover:text-yellow-300 bg-yellow-500/10 hover:bg-yellow-500/20 px-2 py-1 rounded transition-colors"
-                          >
-                            <HelpCircle size={11} />
-                            <span>Gợi ý</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {showHint && !isVisited && (
-                        <div className="mt-1.5 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-[11px] text-yellow-200">
-                          💡 <strong>Gợi ý:</strong> Nằm tại <strong className="underline">{room?.name}</strong>. Hãy di chuyển sang phòng này để tìm kiếm!
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* All items unlocked congrats banner inside checklist */}
-                {allVisited && (
-                  <div
-                    onClick={() => {
-                      if (!isMuted) soundFx.playBrassChime();
-                      setShowBadgeModal(true);
-                    }}
-                    className="p-3 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 text-yellow-300 text-center font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-yellow-500/30 transition-colors"
-                  >
-                    <Award size={16} />
-                    <span>Xem Bằng Chứng Nhận Sưu Tập Báu Vật (15/15)!</span>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Top-Right: Night Mode Toggle, Sound Toggle & Room Navigation */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-auto flex items-center gap-2 flex-wrap"
-        >
-          {/* Room Navigation Pill */}
-          <div className="flex items-center gap-1 bg-black/80 md:backdrop-blur-lg p-1.5 rounded-2xl md:rounded-full border border-white/10 shadow-xl overflow-x-auto max-w-[calc(100vw-2rem)] md:max-w-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {ROOMS.map((room) => {
-              const isActive = activeRoomId === room.id;
-              return (
-                <button
-                  key={room.id}
-                  onClick={() => handleRoomClick(room.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all duration-300 ${
-                    isActive
-                      ? "bg-red-700 text-white shadow-md scale-105"
-                      : "text-gray-400 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {room.name.split(":")[0]}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Tour Mode Toggle */}
-          <button
-            onClick={() => {
-              if (!isMuted) soundFx.playWoodClick();
-              setTourMode(!isTourMode);
-            }}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-full border border-white/10 text-xs font-semibold text-white transition-colors shadow-xl ${
-              isTourMode ? "bg-red-600 hover:bg-red-500" : "bg-blue-600 hover:bg-blue-500"
-            }`}
-          >
-            {isTourMode ? <Square size={14} /> : <Play size={14} />}
-            <span>{isTourMode ? "Dừng Tour" : "Bắt đầu Tour"}</span>
+      <aside className="artifact-index" aria-label="Danh sách hiện vật trong phòng">
+        <span>{visited.length}/{ARTIFACTS.length} đã khám phá</span>
+        {roomArtifacts.map((artifact) => (
+          <button key={artifact.id} onClick={() => useStore.getState().setActiveArtifact(artifact.id)} className={visited.includes(artifact.id) ? "visited" : ""}>
+            <i style={{ background: artifact.color }} />
+            <span><small>{artifact.date}</small>{artifact.title}</span>
           </button>
+        ))}
+      </aside>
 
-          {/* Night Mode Toggle */}
-          <button
-            onClick={() => {
-              if (!isMuted) soundFx.playWoodClick();
-              toggleNightMode();
-            }}
-            className="flex items-center gap-1.5 bg-black/80 md:backdrop-blur-lg px-3.5 py-2 rounded-full border border-white/10 text-xs font-semibold text-white hover:bg-white/10 transition-colors shadow-xl"
-            title="Chuyển đổi Chế độ Ban Ngày / Ban Đêm"
-          >
-            {isNightMode ? <Moon size={14} className="text-indigo-400" /> : <Sun size={14} className="text-amber-400" />}
-            <span>{isNightMode ? "Đêm" : "Ngày"}</span>
-          </button>
-
-          {/* Sound Toggle */}
-          <button
-            onClick={() => {
-              toggleMute();
-            }}
-            className="flex items-center gap-2 bg-black/80 md:backdrop-blur-lg px-3.5 py-2 rounded-full border border-white/10 text-xs font-semibold text-white hover:bg-white/10 transition-colors shadow-xl"
-          >
-            {isMuted ? <VolumeX size={14} className="text-red-400" /> : <Volume2 size={14} className="text-green-400" />}
-            <span>Âm thanh {isMuted ? "TẮT" : "BẬT"}</span>
-          </button>
-        </motion.div>
+      <div className="context-actions">
+        {activeRoomId === "room-turning-point" && <button onClick={() => setPanel("game")}>Ghép số 1967</button>}
+        {activeRoomId === "room-policy" && <button onClick={() => setPanel("timeline")}>Mở timeline</button>}
       </div>
 
-      {/* Artifact Details Side Modal */}
-      <AnimatePresence>
-        {activeArtifact && (
-          <motion.div
-            initial={{ opacity: 0, x: 80 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 80 }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="pointer-events-auto absolute inset-x-4 md:inset-x-auto md:right-6 top-32 md:top-24 bottom-20 md:bottom-24 md:w-96 bg-black/85 md:backdrop-blur-xl border border-yellow-500/30 rounded-2xl p-6 text-white shadow-2xl flex flex-col justify-between overflow-y-auto z-40"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 rounded-full font-mono text-xs font-bold uppercase">
-                  Năm {activeArtifact.year}
-                </span>
-                <button
-                  onClick={() => {
-                    if (!isMuted) soundFx.playWoodClick();
-                    setActiveArtifact(null);
-                  }}
-                  className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <h2 className="text-xl font-bold font-serif leading-snug mb-3 text-yellow-100">
-                {activeArtifact.title}
-              </h2>
-              <div className="w-16 h-1 bg-red-600 mb-4 rounded-full" />
-
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                {activeArtifact.description}
-              </p>
-            </div>
-
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Achievement Badge Modal when finding 15/15 Artifacts */}
-      <AnimatePresence>
-        {showBadgeModal && (
-          <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 md:backdrop-blur-md">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="bg-gradient-to-b from-gray-900 via-black to-red-950 border-2 border-yellow-500/50 rounded-3xl p-8 max-w-md w-full text-center text-white shadow-2xl relative overflow-hidden"
-            >
-              <button
-                onClick={() => setShowBadgeModal(false)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="mx-auto w-20 h-20 bg-yellow-500/20 border-2 border-yellow-400 rounded-full flex items-center justify-center mb-4 text-yellow-400 animate-pulse">
-                <Award size={44} />
-              </div>
-
-              <h2 className="text-2xl font-bold font-serif text-yellow-300 mb-2">
-                BẮNG CHỨNG NHẬN HOÀN THÀNH
-              </h2>
-              <p className="text-xs text-yellow-400/80 font-mono uppercase tracking-widest mb-4">
-                Bảo Tàng Lịch Sử Đảng Cộng Sản Việt Nam
-              </p>
-
-              <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-                Chúc mừng bạn đã xuất sắc tìm thấy và khám phá trọn vẹn <strong className="text-yellow-400">15/15 Báu Vật Lịch Sử</strong> quý giá!
-              </p>
-
-              <button
-                onClick={() => setShowBadgeModal(false)}
-                className="w-full py-3 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-black font-bold rounded-xl text-sm transition-all shadow-lg"
-              >
-                Tiếp Tục Tham Quan
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Bottom Center Zoom Pill Bar */}
-      <div className="flex justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-auto flex items-center gap-3 bg-black/80 md:backdrop-blur-lg px-4 py-1.5 rounded-full border border-white/10 text-white text-xs shadow-xl"
-        >
-          <button
-            onClick={() => {
-              if (!isMuted) soundFx.playWoodClick();
-              zoomOut();
-            }}
-            className="p-1 hover:text-yellow-400 transition-colors text-gray-300"
-            title="Thu nhỏ"
-          >
-            <Minus size={14} />
+      <nav className="room-nav" aria-label="Điều hướng phòng trưng bày">
+        {ROOMS.map((item) => (
+          <button key={item.id} className={item.id === activeRoomId ? "active" : ""} onClick={() => setActiveRoom(item.id)}>
+            <span>{item.index}</span>
+            <div><b>{item.name}</b><small>{item.period}</small></div>
           </button>
-          <span className="font-mono text-xs font-semibold text-gray-200 min-w-[42px] text-center">
-            {zoomPercentage}%
-          </span>
-          <button
-            onClick={() => {
-              if (!isMuted) soundFx.playWoodClick();
-              zoomIn();
-            }}
-            className="p-1 hover:text-yellow-400 transition-colors text-gray-300"
-            title="Phóng to"
-          >
-            <Plus size={14} />
-          </button>
-        </motion.div>
-      </div>
+        ))}
+      </nav>
+
+      <p className="scene-hint">Bấm vào hiện vật 3D hoặc danh sách để đọc câu chuyện.</p>
+      <ArtifactPanel />
+      <OpeningVote />
+      <AnimatePresence>{panel && <Modal panel={panel} close={() => setPanel(null)} />}</AnimatePresence>
     </div>
   );
 }
